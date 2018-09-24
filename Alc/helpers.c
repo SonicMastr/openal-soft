@@ -102,7 +102,9 @@ DEFINE_PROPERTYKEY(PKEY_AudioEndpoint_GUID, 0x1da5d803, 0xd492, 0x4edd, 0x8c, 0x
 #ifndef _WIN32
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifndef __SWITCH__
 #include <sys/mman.h>
+#endif
 #include <fcntl.h>
 #include <unistd.h>
 #elif defined(_WIN32_IE)
@@ -683,6 +685,29 @@ void GetProcBinary(al_string *path, al_string *fname)
     char *pathname = NULL;
     size_t pathlen;
 
+#ifdef __SWITCH__
+    // TODO: get real NRO path
+
+    pathname = "/switch/unknown.nro";
+    pathlen = strlen(pathname);
+
+    char *sep = strrchr(pathname, '/');
+    if(sep)
+    {
+        if(path) alstr_copy_range(path, pathname, sep);
+        if(fname) alstr_copy_cstr(fname, sep+1);
+    }
+    else
+    {
+        if(path) alstr_clear(path);
+        if(fname) alstr_copy_cstr(fname, pathname);
+    }
+
+    if(path && fname)
+        TRACE("Got: %s, %s\n", alstr_get_cstr(*path), alstr_get_cstr(*fname));
+    else if(path) TRACE("Got path: %s\n", alstr_get_cstr(*path));
+    else if(fname) TRACE("Got filename: %s\n", alstr_get_cstr(*fname));
+#else
 #ifdef __FreeBSD__
     int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
     if(sysctl(mib, 4, NULL, &pathlen, NULL, 0) == -1)
@@ -775,6 +800,7 @@ void GetProcBinary(al_string *path, al_string *fname)
         TRACE("Got: %s, %s\n", alstr_get_cstr(*path), alstr_get_cstr(*fname));
     else if(path) TRACE("Got path: %s\n", alstr_get_cstr(*path));
     else if(fname) TRACE("Got filename: %s\n", alstr_get_cstr(*fname));
+#endif
 }
 
 
@@ -980,6 +1006,18 @@ struct FileMapping MapFileToMem(const char *fname)
         return ret;
     }
 
+#ifdef __SWITCH__
+    // we don't have mmap on switch, so we load the whole fucking file
+    ptr = calloc(1, sbuf.st_size);
+    if(ptr == NULL)
+    {
+        ERR("Failed to alloc mem for %s: (%d) %s\n", fname, errno, strerror(errno));
+        close(fd);
+        return ret;
+    }
+
+    read(fd, ptr, sbuf.st_size);
+#else
     ptr = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if(ptr == MAP_FAILED)
     {
@@ -987,6 +1025,7 @@ struct FileMapping MapFileToMem(const char *fname)
         close(fd);
         return ret;
     }
+#endif
 
     ret.fd = fd;
     ret.ptr = ptr;
@@ -996,7 +1035,11 @@ struct FileMapping MapFileToMem(const char *fname)
 
 void UnmapFileMem(const struct FileMapping *mapping)
 {
+#ifdef __SWITCH__
+    free(mapping->ptr);
+#else
     munmap(mapping->ptr, mapping->len);
+#endif
     close(mapping->fd);
 }
 

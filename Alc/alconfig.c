@@ -46,16 +46,16 @@
 #include "bool.h"
 
 
-typedef struct ConfigEntry {
+typedef struct ConfigEntryAL {
     char *key;
     char *value;
-} ConfigEntry;
+} ConfigEntryAL;
 
-typedef struct ConfigBlock {
-    ConfigEntry *entries;
+typedef struct ConfigBlockAL {
+    ConfigEntryAL *entries;
     unsigned int entryCount;
-} ConfigBlock;
-static ConfigBlock cfgBlock;
+} ConfigBlockAL;
+static ConfigBlockAL cfgBlock;
 
 
 static char *lstrip(char *line)
@@ -198,7 +198,7 @@ static void LoadConfigFromFile(FILE *f)
     char curSection[128] = "";
     char *buffer = NULL;
     size_t maxlen = 0;
-    ConfigEntry *ent;
+    ConfigEntryAL *ent;
 
     while(readline(f, &buffer, &maxlen))
     {
@@ -343,7 +343,7 @@ static void LoadConfigFromFile(FILE *f)
         if((unsigned int)(ent-cfgBlock.entries) >= cfgBlock.entryCount)
         {
             /* Allocate a new option entry */
-            ent = realloc(cfgBlock.entries, (cfgBlock.entryCount+1)*sizeof(ConfigEntry));
+            ent = realloc(cfgBlock.entries, (cfgBlock.entryCount+1)*sizeof(ConfigEntryAL));
             if(!ent)
             {
                  ERR("config parse error: error reallocating config entries\n");
