@@ -220,6 +220,9 @@ void FillCPUCaps(int capfilter)
 #endif
 #endif
 #ifdef HAVE_NEON
+#ifdef __SWITCH__
+    caps |= CPU_CAP_NEON;
+#else
     FILE *file = fopen("/proc/cpuinfo", "rt");
     if(!file)
         ERR("Failed to open /proc/cpuinfo, cannot check for NEON support\n");
@@ -264,6 +267,7 @@ void FillCPUCaps(int capfilter)
 
         alstr_reset(&features);
     }
+#endif
 #endif
 
     TRACE("Extensions:%s%s%s%s%s%s\n",
