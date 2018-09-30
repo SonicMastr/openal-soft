@@ -1704,10 +1704,11 @@ static void alcSetError(ALCdevice *device, ALCenum errorCode)
 }
 
 
-struct Compressor *CreateDeviceLimiter(const ALCdevice *device)
+static struct Compressor *CreateDeviceLimiter(const ALCdevice *device, const ALfloat threshold)
 {
-    return CompressorInit(0.0f, 0.0f, AL_FALSE, AL_TRUE, 0.0f, 0.0f, 0.5f, 2.0f,
-                          0.0f, -3.0f, 3.0f, device->Frequency);
+    return CompressorInit(device->RealOut.NumChannels, device->Frequency,
+        AL_TRUE, AL_TRUE, AL_TRUE, AL_TRUE, AL_TRUE, 0.001f, 0.002f,
+        0.0f, 0.0f, threshold, INFINITY, 0.0f, 0.020f, 0.200f);
 }
 
 /* UpdateClockBase
@@ -2050,6 +2051,7 @@ static ALCenum UpdateDeviceParams(ALCdevice *device, const ALCint *attrList)
     device->RealOut.NumChannels = 0;
 
     UpdateClockBase(device);
+    device->FixedLatency = 0;
 
     device->DitherSeed = DITHER_RNG_SEED;
 
@@ -2231,11 +2233,29 @@ static ALCenum UpdateDeviceParams(ALCdevice *device, const ALCint *attrList)
      */
     if(gainLimiter != ALC_FALSE)
     {
-        if(!device->Limiter || device->Frequency != GetCompressorSampleRate(device->Limiter))
+        ALfloat thrshld = 1.0f;
+        switch(device->FmtType)
         {
-            al_free(device->Limiter);
-            device->Limiter = CreateDeviceLimiter(device);
+            case DevFmtByte:
+            case DevFmtUByte:
+                thrshld = 127.0f / 128.0f;
+                break;
+            case DevFmtShort:
+            case DevFmtUShort:
+                thrshld = 32767.0f / 32768.0f;
+                break;
+            case DevFmtInt:
+            case DevFmtUInt:
+            case DevFmtFloat:
+                break;
         }
+        if(device->DitherDepth > 0.0f)
+            thrshld -= 1.0f / device->DitherDepth;
+
+        al_free(device->Limiter);
+        device->Limiter = CreateDeviceLimiter(device, log10f(thrshld) * 20.0f);
+        device->FixedLatency += (ALuint)(device->Limiter->LookAhead * DEVICE_CLOCK_RES /
+                                         device->Frequency);
     }
     else
     {
@@ -2245,6 +2265,8 @@ static ALCenum UpdateDeviceParams(ALCdevice *device, const ALCint *attrList)
     TRACE("Output limiter %s\n", device->Limiter ? "enabled" : "disabled");
 
     aluSelectPostProcess(device);
+
+    TRACE("Fixed device latency: %uns\n", device->FixedLatency);
 
     /* Need to delay returning failure until replacement Send arrays have been
      * allocated with the appropriate size.
@@ -2405,6 +2427,7 @@ static void InitDevice(ALCdevice *device, enum DeviceType type)
 
     device->ClockBase = 0;
     device->SamplesDone = 0;
+    device->FixedLatency = 0;
 
     device->SourcesMax = 0;
     device->AuxiliaryEffectSlotMax = 0;
@@ -3620,7 +3643,7 @@ ALC_API void ALC_APIENTRY alcGetInteger64vSOFT(ALCdevice *device, ALCenum pname,
                     values[i++] = ALC_OUTPUT_LIMITER_SOFT;
                     values[i++] = device->Limiter ? ALC_TRUE : ALC_FALSE;
 
-                    clock = V0(device->Backend,getClockLatency)();
+                    clock = GetClockLatency(device);
                     values[i++] = ALC_DEVICE_CLOCK_SOFT;
                     values[i++] = clock.ClockTime;
 
@@ -3646,7 +3669,7 @@ ALC_API void ALC_APIENTRY alcGetInteger64vSOFT(ALCdevice *device, ALCenum pname,
 
             case ALC_DEVICE_LATENCY_SOFT:
                 almtx_lock(&device->BackendLock);
-                clock = V0(device->Backend,getClockLatency)();
+                clock = GetClockLatency(device);
                 almtx_unlock(&device->BackendLock);
                 *values = clock.Latency;
                 break;
@@ -3657,7 +3680,7 @@ ALC_API void ALC_APIENTRY alcGetInteger64vSOFT(ALCdevice *device, ALCenum pname,
                 else
                 {
                     almtx_lock(&device->BackendLock);
-                    clock = V0(device->Backend,getClockLatency)();
+                    clock = GetClockLatency(device);
                     almtx_unlock(&device->BackendLock);
                     values[0] = clock.ClockTime;
                     values[1] = clock.Latency;
@@ -4211,7 +4234,7 @@ ALC_API ALCdevice* ALC_APIENTRY alcOpenDevice(const ALCchar *deviceName)
             ERR("Unsupported ambi-format: %s\n", fmt);
     }
 
-    device->Limiter = CreateDeviceLimiter(device);
+    device->Limiter = CreateDeviceLimiter(device, 0.0f);
 
     {
         ALCdevice *head = ATOMIC_LOAD_SEQ(&DeviceList);
@@ -4540,7 +4563,7 @@ ALC_API ALCdevice* ALC_APIENTRY alcLoopbackOpenDeviceSOFT(const ALCchar *deviceN
     // Open the "backend"
     V(device->Backend,open)("Loopback");
 
-    device->Limiter = CreateDeviceLimiter(device);
+    device->Limiter = CreateDeviceLimiter(device, 0.0f);
 
     {
         ALCdevice *head = ATOMIC_LOAD_SEQ(&DeviceList);
