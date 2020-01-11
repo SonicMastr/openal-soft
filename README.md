@@ -8,8 +8,17 @@ OpenAL provides capabilities for playing audio in a virtual 3D environment. Dist
 
 More information is available on the [official website](http://openal-soft.org/)
 
+Switch Version
+--------------
+To build and install the Switch version, use the Switch-specific Makefile:
+```
+source $DEVKITPRO/switchvars.sh
+make -f Makefile.nx
+make -f Makefile.nx install
+```
+
 Source Install
--------------
+--------------
 To install OpenAL Soft, use your favorite shell to go into the build/
 directory, and run:
 
