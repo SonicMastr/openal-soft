@@ -8,13 +8,12 @@ OpenAL provides capabilities for playing audio in a virtual 3D environment. Dist
 
 More information is available on the [official website](http://openal-soft.org/)
 
-Switch Version
+Vita Version
 --------------
-To build and install the Switch version, use the Switch-specific Makefile:
+To build and install the Cita version, use the Vita-specific Makefile:
 ```
-source $DEVKITPRO/switchvars.sh
-make -f Makefile.nx
-make -f Makefile.nx install
+make -f Makefile.vita
+make -f Makefile.vita install
 ```
 
 Source Install

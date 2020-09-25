@@ -3,3 +3,5 @@ winbuild/
 win64build/
 openal-soft.kdev4
 .kdev4/
+*.o
+*.a

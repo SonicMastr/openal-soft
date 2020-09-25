@@ -436,7 +436,7 @@ enum DevFmtType {
     DevFmtUInt   = ALC_UNSIGNED_INT_SOFT,
     DevFmtFloat  = ALC_FLOAT_SOFT,
 
-    DevFmtTypeDefault = DevFmtFloat
+    DevFmtTypeDefault = DevFmtShort
 };
 enum DevFmtChannels {
     DevFmtMono   = ALC_MONO_SOFT,

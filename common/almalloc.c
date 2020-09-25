@@ -26,7 +26,9 @@
 
 void *al_malloc(size_t alignment, size_t size)
 {
-#if defined(HAVE_ALIGNED_ALLOC)
+#ifdef VITA
+	return memalign(alignment, size);
+#elif defined(HAVE_ALIGNED_ALLOC)
     size = (size+(alignment-1))&~(alignment-1);
     return aligned_alloc(alignment, size);
 #elif defined(HAVE_POSIX_MEMALIGN)
