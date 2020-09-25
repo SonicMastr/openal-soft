@@ -10,7 +10,7 @@ More information is available on the [official website](http://openal-soft.org/)
 
 Vita Version
 --------------
-To build and install the Cita version, use the Vita-specific Makefile:
+To build and install the Vita version, use the Vita-specific Makefile:
 ```
 make -f Makefile.vita
 make -f Makefile.vita install
